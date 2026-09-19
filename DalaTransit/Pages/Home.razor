@@ -1,0 +1,267 @@
+﻿@page "/"
+@using System.Net.Http.Json
+@using DalaTransit.Domain
+@inject HttpClient Http
+@inject ResRobotRoutingService RoutingService
+
+<PageTitle>Dalatrafik – Reseplanerare med Bytesrisk</PageTitle>
+
+<!-- Dalatrafik Header -->
+<header class="dt-navbar">
+    <div style="max-width: 1100px; margin: 0 auto; width: 100%; display: flex; justify-content: space-between; align-items: center;">
+        <a href="/" class="dt-logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 8l-2-4h-4l-1 2h-2L9 4H5L3 8v4l3 2v6h4v-5l2 2v3h4v-6l3-3V8z"></path>
+            </svg>
+            <span>DALATRAFIK</span>
+        </a>
+        <nav class="dt-nav-links">
+            <a href="#analys">Reseplanerare</a>
+            <a href="#trafiklaget">Trafikläget</a>
+            <a href="#om">Om DalaTransit</a>
+        </nav>
+    </div>
+</header>
+
+<!-- Hero med utökad sökmodul -->
+<section class="dt-hero">
+    <h1 class="dt-hero-title">Hej, vart vill du resa?</h1>
+
+    <div class="dt-search-card">
+        <!-- Rad 1: Från / Till -->
+        <div class="dt-input-group">
+            <div class="dt-field">
+                <label>Från</label>
+                <input type="text" @bind="originStop" list="popularStops" placeholder="T.ex. Hellbergs väg" />
+            </div>
+            <button class="dt-swap-btn" type="button" title="Växla hållplatser" @onclick="SwapStops">⇄</button>
+            <div class="dt-field">
+                <label>Till</label>
+                <input type="text" @bind="destinationStop" list="popularStops" placeholder="T.ex. Borlänge centrum" />
+            </div>
+        </div>
+
+        <!-- Rad 2: Datum & Tid -->
+        <div class="dt-input-group" style="margin-top: 0.75rem;">
+            <div class="dt-field">
+                <label>Datum</label>
+                <input type="date" @bind="selectedDate" />
+            </div>
+            <div class="dt-field">
+                <label>Avgångstid</label>
+                <input type="time" @bind="selectedTime" />
+            </div>
+        </div>
+
+        <datalist id="popularStops">
+            <option value="Hellbergs väg">Hellbergs väg</option>
+            <option value="Borlänge centrum">Borlänge centrum</option>
+            <option value="Falun Knutpunkten">Falun Knutpunkten</option>
+            <option value="Rättviks station">Rättviks station</option>
+            <option value="Leksands station">Leksands station</option>
+            <option value="Mora resecentrum">Mora resecentrum</option>
+            <option value="Ludvika station">Ludvika station</option>
+            <option value="Hedemora Centrumrondellen">Hedemora Centrumrondellen</option>
+        </datalist>
+
+        <div style="text-align: center; margin-top: 1.25rem;">
+            <button class="dt-btn-primary" type="button" @onclick="SearchJourneys" disabled="@isSearching">
+                @(isSearching ? "Hämtar tidtabeller..." : "Sök resa")
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- Reseresultat med riskmätare -->
+@if (isSearching)
+{
+    <div style="text-align: center; margin: 3rem 0; font-size: 1.1rem; color: #666;">
+        Söker linjer och beräknar bytesrisker via Trafiklab ResRobot...
+    </div>
+}
+else if (searchErrorMessage != null)
+{
+    <div style="max-width: 900px; margin: 2rem auto; padding: 1rem; background: #fff3cd; border-radius: 6px; text-align: center; color: #856404;">
+        @searchErrorMessage
+    </div>
+}
+else if (journeys.Count > 0)
+{
+    <section class="dt-journey-list">
+        <div class="dt-date-header">
+            @selectedDate.ToString("dddd d MMMM yyyy", new System.Globalization.CultureInfo("sv-SE"))
+        </div>
+
+        @foreach (var journey in journeys)
+        {
+            var isExpanded = expandedJourneyId == journey.Id;
+            var risk = journey.RiskAnalysis;
+            var onTimeRate = risk != null ? (100.0 - risk.MissRiskPercentage) : 100.0;
+            var gaugeCss = GetGaugeClass(risk?.Category ?? RiskCategory.Low);
+
+            <div class="dt-journey-card">
+                <div class="dt-journey-summary" @onclick="() => ToggleDetails(journey.Id)">
+                    <div class="dt-journey-time">
+                        <span class="ca-prefix">ca</span> @journey.StartTime.ToString(@"hh\:mm") - @journey.EndTime.ToString(@"hh\:mm")
+                    </div>
+
+                    <div class="dt-journey-duration">
+                        @($"{(int)journey.TotalDuration.TotalHours}:{(int)journey.TotalDuration.Minutes:D2}")
+                    </div>
+
+                    <div class="dt-journey-transfers">
+                        @(journey.TransferCount == 0 ? "Direkt" : $"{journey.TransferCount} byte")
+                    </div>
+
+                    <div class="dt-journey-lines">
+                        @foreach (var leg in journey.Legs)
+                        {
+                            <span class="dt-line-badge">@leg.LineNumber</span>
+                        }
+                    </div>
+
+                    <!-- Visuell Riskmätare -->
+                    <div class="dt-risk-gauge-container @gaugeCss">
+                        <div class="dt-risk-status-text">
+                            @if (journey.TransferCount > 0 && risk != null)
+                            {
+                                @($"{onTimeRate:F0}% chans att hinna")
+                            }
+                            else
+                            {
+                                <span>100% pålitlig</span>
+                            }
+                        </div>
+                        <div class="dt-gauge-bar-bg" title="Statistisk sannolikhet baserad på historiska observationer">
+                            <div class="dt-gauge-bar-fill" style="width: @(onTimeRate)%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="dt-toggle-details">
+                        <span>Visa resedetaljer</span>
+                        <span>@(isExpanded ? "−" : "+")</span>
+                    </div>
+                </div>
+
+                @if (isExpanded)
+                {
+                    <div class="dt-journey-details">
+                        @for (int i = 0; i < journey.Legs.Count; i++)
+                        {
+                            var leg = journey.Legs[i];
+                            <div class="dt-timeline-leg">
+                                <div class="dt-timeline-point"></div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <strong style="min-width: 55px;">@leg.DepartureTime.ToString(@"hh\:mm")</strong>
+                                    <span class="dt-line-badge">@leg.LineNumber</span>
+                                    <span>Vid <strong>@leg.OriginStop</strong> @leg.OriginPlatform tar du Linje @leg.LineNumber mot @leg.DirectionHeading.</span>
+                                </div>
+                                <div style="margin-top: 6px; color: #666; margin-left: 63px;">
+                                    <span>Gå av vid <strong>@leg.DestinationStop</strong> @leg.DestinationPlatform kl @leg.ArrivalTime.ToString(@"hh\:mm").</span>
+                                </div>
+                            </div>
+
+                            @if (i < journey.Legs.Count - 1)
+                            {
+                                var nextLeg = journey.Legs[i + 1];
+                                var margin = (int)(nextLeg.DepartureTime >= leg.ArrivalTime
+                                    ? (nextLeg.DepartureTime - leg.ArrivalTime).TotalMinutes
+                                    : (nextLeg.DepartureTime + TimeSpan.FromHours(24) - leg.ArrivalTime).TotalMinutes);
+
+                                <div class="dt-transfer-alert" style="border-left-color: @(margin <= 3 ? "#c80032" : "#2e7d32"); background-color: @(margin <= 3 ? "#fdeded" : "#edf7ed");">
+                                    <div style="font-weight: 700; color: #111;">
+                                        Byte vid @leg.DestinationStop: @margin minuters marginal (@leg.DestinationPlatform ➔ @nextLeg.OriginPlatform)
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: #444; margin-top: 3px;">
+                                        @if (margin <= 3)
+                                        {
+                                            <span style="color: #c80032; font-weight: bold;">Snävt byte:</span>
+                                            <span> P90-förseningen för ankommande linje överstiger marginalen. Hög risk att missa anslutningen vid Knutpunkten.</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #2e7d32; font-weight: bold;">Tryggt byte:</span>
+                                            <span> God tidsmarginal för byte mellan hållplatslägena.</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private string originStop = "Hellbergs väg";
+    private string destinationStop = "Borlänge centrum";
+    private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly selectedTime = TimeOnly.FromDateTime(DateTime.Now);
+
+    private string? expandedJourneyId;
+    private bool isSearching = false;
+    private string? searchErrorMessage;
+
+    private RiskExportData? riskData;
+    private List<JourneyOption> journeys = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            riskData = await Http.GetFromJsonAsync<RiskExportData>($"data/risk-reports.json?v={DateTime.UtcNow.Ticks}");
+        }
+        catch { }
+
+        await SearchJourneys();
+    }
+
+    private async Task SwapStops()
+    {
+        (originStop, destinationStop) = (destinationStop, originStop);
+        await SearchJourneys();
+    }
+
+    private void ToggleDetails(string id)
+    {
+        expandedJourneyId = (expandedJourneyId == id) ? null : id;
+    }
+
+    private async Task SearchJourneys()
+    {
+        if (string.IsNullOrWhiteSpace(originStop) || string.IsNullOrWhiteSpace(destinationStop))
+            return;
+
+        isSearching = true;
+        searchErrorMessage = null;
+        journeys.Clear();
+
+        try
+        {
+            var travelDateTime = selectedDate.ToDateTime(selectedTime);
+            journeys = await RoutingService.SearchTripsAsync(originStop, destinationStop, travelDateTime, riskData);
+
+            if (journeys.Count == 0)
+            {
+                searchErrorMessage = $"Kunde inte hitta några resor mellan '{originStop}' och '{destinationStop}' för valt datum och tid.";
+            }
+        }
+        catch (Exception ex)
+        {
+            searchErrorMessage = $"Ett fel uppstod vid hämtning av resor: {ex.Message}";
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    private string GetGaugeClass(RiskCategory category) => category switch
+    {
+        RiskCategory.Low => "dt-gauge-low",
+        RiskCategory.Moderate => "dt-gauge-moderate",
+        _ => "dt-gauge-critical"
+    };
+}

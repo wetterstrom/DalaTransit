@@ -1,0 +1,487 @@
+/* ========================================================
+   DALATRAFIK DESIGN SYSTEM & BASE STYLES
+   ======================================================== */
+
+:root {
+    --dt-red: #c80032;
+    --dt-red-hover: #a50028;
+    --dt-dark: #222222;
+    --dt-gray-bg: #f5f5f7;
+    --dt-border: #e0e0e0;
+    --dt-text-muted: #666666;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--dt-dark);
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ========================================================
+   HEADER / NAVBAR
+   ======================================================== */
+
+.dt-navbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--dt-border);
+    padding: 0.85rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.dt-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: var(--dt-red);
+    text-decoration: none;
+}
+
+    .dt-logo svg {
+        display: block;
+    }
+
+.dt-nav-links a {
+    color: #333333;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    margin-left: 1.75rem;
+    transition: color 0.15s ease;
+}
+
+    .dt-nav-links a:hover {
+        color: var(--dt-red);
+    }
+
+/* ========================================================
+   HERO & SEARCH WIDGET
+   ======================================================== */
+
+.dt-hero {
+    position: relative;
+    background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=80') center/cover no-repeat;
+    padding: 4.5rem 1.5rem 5.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #ffffff;
+    text-align: center;
+}
+
+.dt-hero-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0 0 2rem 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.dt-search-card {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 850px;
+    color: #333333;
+    text-align: left;
+}
+
+.dt-input-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.dt-field {
+    flex: 1;
+}
+
+    .dt-field label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--dt-text-muted);
+        margin-bottom: 0.35rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .dt-field input,
+    .dt-field select {
+        width: 100%;
+        height: 44px;
+        padding: 0 0.85rem;
+        border: 1px solid var(--dt-border);
+        border-radius: 4px;
+        font-size: 0.95rem;
+        outline: none;
+        background-color: #ffffff;
+        color: var(--dt-dark);
+        transition: border-color 0.15s ease;
+    }
+
+        .dt-field input:focus,
+        .dt-field select:focus {
+            border-color: var(--dt-red);
+        }
+
+.dt-swap-btn {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--dt-border);
+    border-radius: 4px;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555555;
+    transition: background-color 0.15s ease;
+    flex-shrink: 0;
+}
+
+    .dt-swap-btn:hover {
+        background-color: var(--dt-gray-bg);
+        color: var(--dt-red);
+    }
+
+.dt-btn-primary {
+    background-color: var(--dt-red);
+    color: #ffffff;
+    border: none;
+    height: 46px;
+    padding: 0 2.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+    .dt-btn-primary:hover {
+        background-color: var(--dt-red-hover);
+    }
+
+/* ========================================================
+   RISK RESULT SECTION
+   ======================================================== */
+
+.dt-result-container {
+    max-width: 850px;
+    margin: 2.5rem auto 4rem;
+    padding: 0 1rem;
+}
+
+.dt-result-card {
+    background: #ffffff;
+    border: 1px solid var(--dt-border);
+    border-radius: 8px;
+    padding: 1.75rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.dt-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--dt-border);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.dt-risk-badge {
+    display: inline-block;
+    padding: 0.45rem 1.1rem;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.dt-badge-low {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.dt-badge-moderate {
+    background-color: #fff8e1;
+    color: #b78103;
+}
+
+.dt-badge-high {
+    background-color: #ffebee;
+    color: #c80032;
+}
+
+.dt-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.25rem;
+    text-align: center;
+}
+
+.dt-metric-box {
+    background: #fbfbfd;
+    padding: 1.2rem;
+    border-radius: 6px;
+    border: 1px solid #f0f0f3;
+}
+
+.dt-metric-label {
+    color: var(--dt-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dt-metric-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--dt-dark);
+    margin-top: 0.35rem;
+}
+
+.dt-p90 {
+    color: var(--dt-red);
+}
+
+.dt-advice-box {
+    margin-top: 1.75rem;
+    padding: 1.1rem 1.35rem;
+    border-radius: 6px;
+    border-left: 4px solid;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* ========================================================
+   BLAZOR SYSTEM STYLES
+   ======================================================== */
+
+#blazor-error-ui {
+    background: #fff3cd;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    color: #856404;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+/* ========================================================
+   RESELISTA & LINJEBRICKOR (DALATRAFIK-STIL)
+   ======================================================== */
+
+.dt-journey-list {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.dt-date-header {
+    font-size: 1.15rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--dt-dark);
+}
+
+.dt-journey-card {
+    background: #ffffff;
+    border: 1px solid var(--dt-border);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+    .dt-journey-card:hover {
+        border-color: #bbbbbb;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+.dt-journey-summary {
+    display: flex;
+    align-items: center;
+    padding: 1.1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    gap: 1.5rem;
+}
+
+.dt-journey-time {
+    font-size: 1.05rem;
+    font-weight: 700;
+    min-width: 135px;
+    color: #111111;
+}
+
+    .dt-journey-time .ca-prefix {
+        font-style: italic;
+        font-weight: 500;
+        font-size: 0.95rem;
+        margin-right: 2px;
+    }
+
+.dt-journey-duration {
+    color: #555555;
+    font-size: 0.95rem;
+    min-width: 50px;
+}
+
+.dt-journey-transfers {
+    color: #555555;
+    font-size: 0.95rem;
+    min-width: 60px;
+}
+
+.dt-journey-lines {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.dt-line-badge {
+    background-color: #0b4e85; /* Dalatrafik blå linjefärg */
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    padding: 3px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+}
+
+/* Visuell riskmätare / pålitlighetsindikator */
+.dt-risk-gauge-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 170px;
+}
+
+.dt-risk-status-text {
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.dt-gauge-bar-bg {
+    width: 130px;
+    height: 7px;
+    background-color: #e5e5ea;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.dt-gauge-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Färgklasser för mätaren */
+.dt-gauge-low .dt-gauge-bar-fill {
+    background-color: #2e7d32;
+}
+
+.dt-gauge-low .dt-risk-status-text {
+    color: #2e7d32;
+}
+
+.dt-gauge-moderate .dt-gauge-bar-fill {
+    background-color: #e65100;
+}
+
+.dt-gauge-moderate .dt-risk-status-text {
+    color: #e65100;
+}
+
+.dt-gauge-critical .dt-gauge-bar-fill {
+    background-color: #c80032;
+}
+
+.dt-gauge-critical .dt-risk-status-text {
+    color: #c80032;
+}
+
+.dt-toggle-details {
+    color: var(--dt-red);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Expanderade resedetaljer */
+.dt-journey-details {
+    background-color: #fbfbfd;
+    border-top: 1px solid #eeeeee;
+    padding: 1.25rem 1.5rem;
+}
+
+.dt-timeline-leg {
+    position: relative;
+    padding-left: 2rem;
+    margin-bottom: 1.25rem;
+}
+
+    .dt-timeline-leg:before {
+        content: "";
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        bottom: -16px;
+        width: 2px;
+        border-left: 2px dashed #0b4e85;
+    }
+
+    .dt-timeline-leg:last-child:before {
+        display: none;
+    }
+
+.dt-timeline-point {
+    position: absolute;
+    left: 3px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    background: #0b4e85;
+    border-radius: 50%;
+}
+
+.dt-transfer-alert {
+    background-color: #fff9e6;
+    border-left: 4px solid #f57c00;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}

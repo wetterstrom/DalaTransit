@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="DalaTransit.Application/DalaTransit.Application.csproj" />
+  <Project Path="DalaTransit.Cli/DalaTransit.Cli.csproj" />
+  <Project Path="DalaTransit.Domain.Tests/DalaTransit.Domain.Tests.csproj" />
+  <Project Path="DalaTransit.Domain/DalaTransit.Domain.csproj" />
+  <Project Path="DalaTransit.Infrastructure/DalaTransit.Infrastructure.csproj" />
+  <Project Path="DalaTransit/DalaTransit.csproj" />
+</Solution>
