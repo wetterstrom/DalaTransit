@@ -3,6 +3,9 @@
 @using DalaTransit.Domain
 @inject HttpClient Http
 @inject ResRobotRoutingService RoutingService
+@inject HttpClient Http
+@inject ResRobotRoutingService RoutingService
+@inject IJSRuntime JS
 
 <PageTitle>Dalatrafik – Reseplanerare med Bytesrisk</PageTitle>
 
@@ -64,6 +67,21 @@
             <option value="Hedemora Centrumrondellen">Hedemora Centrumrondellen</option>
         </datalist>
 
+        <!-- Rad 3: Senaste sökningar (centrerat under inmatningsfälten) -->
+        @if (recentSearches.Count > 0)
+        {
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: center; margin-top: 1rem;">
+                <span style="font-size: 0.8rem; color: #666;">Senaste:</span>
+                @foreach (var s in recentSearches)
+                {
+                    <button type="button" class="dt-recent-chip" @onclick="() => SelectRecentSearch(s.From, s.To)">
+                        @s.From ➔ @s.To
+                    </button>
+                }
+            </div>
+        }
+
+        <!-- Rad 4: Endast EN centrerad sökknapp -->
         <div style="text-align: center; margin-top: 1.25rem;">
             <button class="dt-btn-primary" type="button" @onclick="SearchJourneys" disabled="@isSearching">
                 @(isSearching ? "Hämtar tidtabeller..." : "Sök resa")
@@ -243,7 +261,11 @@ else if (journeys.Count > 0)
             var travelDateTime = selectedDate.ToDateTime(selectedTime);
             journeys = await RoutingService.SearchTripsAsync(originStop, destinationStop, travelDateTime, riskData);
 
-            if (journeys.Count == 0)
+            if (journeys.Count > 0)
+            {
+                await SaveRecentSearchAsync(originStop, destinationStop);
+            }
+            else
             {
                 searchErrorMessage = $"Kunde inte hitta några resor mellan '{originStop}' och '{destinationStop}' för valt datum och tid.";
             }
@@ -264,4 +286,61 @@ else if (journeys.Count > 0)
         RiskCategory.Moderate => "dt-gauge-moderate",
         _ => "dt-gauge-critical"
     };
+
+    private record RecentRoute(string From, string To);
+    private List<RecentRoute> recentSearches = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadRecentSearchesAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadRecentSearchesAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", "dt_recent_searches");
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                var loaded = System.Text.Json.JsonSerializer.Deserialize<List<RecentRoute>>(json);
+                if (loaded != null)
+                {
+                    recentSearches = loaded;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private async Task SaveRecentSearchAsync(string from, string to)
+    {
+        try
+        {
+            recentSearches.RemoveAll(r =>
+                string.Equals(r.From, from, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(r.To, to, StringComparison.OrdinalIgnoreCase));
+
+            recentSearches.Insert(0, new RecentRoute(from, to));
+
+            if (recentSearches.Count > 4)
+            {
+                recentSearches = recentSearches.Take(4).ToList();
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(recentSearches);
+            await JS.InvokeVoidAsync("localStorage.setItem", "dt_recent_searches", json);
+        }
+        catch { }
+    }
+
+    private async Task SelectRecentSearch(string from, string to)
+    {
+        originStop = from;
+        destinationStop = to;
+        await SearchJourneys();
+    }
 }

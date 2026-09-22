@@ -16,3 +16,18 @@ public sealed class StopRiskSummary
     public int MarginMinutes { get; set; }
     public TransferRiskReport Report { get; set; } = null!;
 }
+
+
+
+public record TransferRiskSummary(
+    string StopId,
+    string StopName,
+    int MarginMinutes,
+    TransferRiskReport Report,
+    int? HourOfDay = null
+);
+
+public record RiskExportData(
+    DateTime GeneratedAtUtc,
+    List<TransferRiskSummary> Summaries
+);
