@@ -58,43 +58,51 @@ public sealed class ResRobotRoutingService
                 continue;
             }
 
-            var legs = new List<JourneyLeg>();
-            var elements = legArray.ValueKind == JsonValueKind.Array
-                ? legArray.EnumerateArray().ToList()
-                : new List<JsonElement> { legArray };
-
-            var vehicleLegs = elements.Where(e => e.TryGetProperty("type", out var t) && t.GetString() == "JNY").ToList();
-
-            foreach (var legElem in vehicleLegs)
-            {
-                var line = ExtractLineNumber(legElem);
-                var origin = legElem.GetProperty("Origin");
-                var dest = legElem.GetProperty("Destination");
-
-                var origName = origin.GetProperty("name").GetString() ?? "";
-                var origTrack = origin.TryGetProperty("track", out var trk) ? $"läge {trk.GetString()}" : "";
-                var origTimeStr = origin.GetProperty("time").GetString() ?? "00:00:00";
-
-                var destName = dest.GetProperty("name").GetString() ?? "";
-                var destTrack = dest.TryGetProperty("track", out var dTrk) ? $"läge {dTrk.GetString()}" : "";
-                var destTimeStr = dest.GetProperty("time").GetString() ?? "00:00:00";
-
-                var dir = legElem.TryGetProperty("direction", out var d) ? d.GetString() ?? "" : "";
-
-                legs.Add(new JourneyLeg(
-                    LineNumber: line,
-                    OriginStop: origName,
-                    OriginPlatform: origTrack,
-                    DepartureTime: TimeSpan.Parse(origTimeStr[..5]),
-                    DestinationStop: destName,
-                    DestinationPlatform: destTrack,
-                    ArrivalTime: TimeSpan.Parse(destTimeStr[..5]),
-                    DirectionHeading: dir
-                ));
-            }
-
+            var legs = ParseLegs(legArray);
             if (legs.Count == 0) continue;
 
+            // Om resan kräver byte, undersök om det finns en tidigare "snabb" anslutningsbuss
+            if (legs.Count > 1)
+            {
+                var leg1 = legs[0];
+                var leg2 = legs[1];
+
+                // Slå upp om en buss avgår direkt efter leg1 anländer (t.ex. 2-4 minuter senare)
+                var earlierConnectingLeg = await FindEarlierConnectingLegAsync(
+                    leg1.DestinationStop,
+                    destId,
+                    travelDateTime.Date,
+                    leg1.ArrivalTime,
+                    leg2.DepartureTime,
+                    ct);
+
+                if (earlierConnectingLeg != null)
+                {
+                    // Skapa det snabbare riskalternativet
+                    var fastLegs = new List<JourneyLeg> { leg1, earlierConnectingLeg };
+                    var fastMargin = earlierConnectingLeg.DepartureTime >= leg1.ArrivalTime
+                        ? earlierConnectingLeg.DepartureTime - leg1.ArrivalTime
+                        : (earlierConnectingLeg.DepartureTime + TimeSpan.FromHours(24)) - leg1.ArrivalTime;
+
+                    var fastDuration = earlierConnectingLeg.ArrivalTime >= leg1.DepartureTime
+                        ? earlierConnectingLeg.ArrivalTime - leg1.DepartureTime
+                        : (earlierConnectingLeg.ArrivalTime + TimeSpan.FromHours(24)) - leg1.DepartureTime;
+
+                    results.Add(new JourneyOption(
+                        Id: $"trip_{tripIndex++}_fast",
+                        StartTime: leg1.DepartureTime,
+                        EndTime: earlierConnectingLeg.ArrivalTime,
+                        TotalDuration: fastDuration,
+                        TransferCount: 1,
+                        Legs: fastLegs,
+                        TransferMargin: fastMargin,
+                        TransferStopName: leg1.DestinationStop,
+                        RiskAnalysis: CalculateTransferRisk(leg1.DestinationStop, (int)fastMargin.TotalMinutes, riskData)
+                    ));
+                }
+            }
+
+            // Lägg även till standardresan
             var firstLeg = legs.First();
             var lastLeg = legs.Last();
             var duration = lastLeg.ArrivalTime >= firstLeg.DepartureTime
@@ -133,7 +141,101 @@ public sealed class ResRobotRoutingService
             ));
         }
 
-        return results;
+        // Sortera alla förslag kronologiskt efter starttid och sedan ankomsttid
+        return results
+            .OrderBy(r => r.StartTime)
+            .ThenBy(r => r.EndTime)
+            .ToList();
+    }
+
+    private async Task<JourneyLeg?> FindEarlierConnectingLegAsync(
+        string transferStopName,
+        string finalDestId,
+        DateTime date,
+        TimeSpan arrivalTime,
+        TimeSpan scheduledDepartureTime,
+        CancellationToken ct)
+    {
+        try
+        {
+            var transferStopId = await LookupStopIdAsync(transferStopName, ct);
+            if (string.IsNullOrEmpty(transferStopId)) return null;
+
+            var dateStr = date.ToString("yyyy-MM-dd");
+            var timeStr = arrivalTime.ToString(@"hh\:mm");
+
+            // Sök direktbussar från bytesstationen från och med ankomsttiden
+            var url = $"https://api.resrobot.se/v2.1/trip?accessId={ApiKey}&originId={transferStopId}&destId={finalDestId}&date={dateStr}&time={timeStr}&format=json";
+            using var resp = await _http.GetAsync(url, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            if (!doc.RootElement.TryGetProperty("Trip", out var trips) || trips.ValueKind != JsonValueKind.Array)
+                return null;
+
+            foreach (var t in trips.EnumerateArray())
+            {
+                if (!t.TryGetProperty("LegList", out var ll) || !ll.TryGetProperty("Leg", out var lArr))
+                    continue;
+
+                var parsedLegs = ParseLegs(lArr);
+                if (parsedLegs.Count == 0) continue;
+
+                var firstConnecting = parsedLegs.First();
+
+                // Om bussen går EFTER att vi anlänt, men TIDIGARE än den buss ResRobot ursprungligen föreslog
+                if (firstConnecting.DepartureTime >= arrivalTime && firstConnecting.DepartureTime < scheduledDepartureTime)
+                {
+                    return firstConnecting;
+                }
+            }
+        }
+        catch
+        {
+            // Fallback om nätverksanropet misslyckas
+        }
+
+        return null;
+    }
+
+    private static List<JourneyLeg> ParseLegs(JsonElement legArray)
+    {
+        var legs = new List<JourneyLeg>();
+        var elements = legArray.ValueKind == JsonValueKind.Array
+            ? legArray.EnumerateArray().ToList()
+            : new List<JsonElement> { legArray };
+
+        var vehicleLegs = elements.Where(e => e.TryGetProperty("type", out var t) && t.GetString() == "JNY").ToList();
+
+        foreach (var legElem in vehicleLegs)
+        {
+            var line = ExtractLineNumber(legElem);
+            var origin = legElem.GetProperty("Origin");
+            var dest = legElem.GetProperty("Destination");
+
+            var origName = origin.GetProperty("name").GetString() ?? "";
+            var origTrack = origin.TryGetProperty("track", out var trk) ? $"läge {trk.GetString()}" : "";
+            var origTimeStr = origin.GetProperty("time").GetString() ?? "00:00:00";
+
+            var destName = dest.GetProperty("name").GetString() ?? "";
+            var destTrack = dest.TryGetProperty("track", out var dTrk) ? $"läge {dTrk.GetString()}" : "";
+            var destTimeStr = dest.GetProperty("time").GetString() ?? "00:00:00";
+
+            var dir = legElem.TryGetProperty("direction", out var d) ? d.GetString() ?? "" : "";
+
+            legs.Add(new JourneyLeg(
+                LineNumber: line,
+                OriginStop: origName,
+                OriginPlatform: origTrack,
+                DepartureTime: TimeSpan.Parse(origTimeStr[..5]),
+                DestinationStop: destName,
+                DestinationPlatform: destTrack,
+                ArrivalTime: TimeSpan.Parse(destTimeStr[..5]),
+                DirectionHeading: dir
+            ));
+        }
+
+        return legs;
     }
 
     private async Task<string?> LookupStopIdAsync(string stopName, CancellationToken ct)
