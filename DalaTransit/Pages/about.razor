@@ -1,0 +1,117 @@
+﻿@page "/om"
+
+<PageTitle>Om DalaTransit</PageTitle>
+
+<div class="container py-4" style="max-width: 860px;">
+
+    <!-- Hero / Filosofi -->
+    <div class="p-4 p-md-5 mb-4 rounded-4 text-white shadow-sm" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-left: 6px solid #38bdf8;">
+        <h1 class="display-6 fw-bold text-white mb-3">En ärligare tidtabell för Dalarna</h1>
+        <p class="lead mb-0 text-light" style="opacity: 0.9;">
+            Vanliga reseplanerare visar en teoretisk drömvärld där varje buss alltid rullar på sekunden och byten på två minuter alltid fungerar.
+            <strong>DalaTransit</strong> är byggt av pendlare, för pendlare. Vi väger in verklig körhistorik och förseningar så att du kan ta smartare, tryggare reseval innan du kliver på bussen.
+        </p>
+    </div>
+
+    <!-- Varför DalaTransit -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <h4 class="fw-bold mb-3 text-primary">Varför behövs en ärligare tidtabell?</h4>
+            <p class="text-secondary">
+                Att stå kvar på en busshållplats och se sin anslutningsbuss köra iväg framför näsan är det mest frustrerande som finns i vardagen.
+                I stället för att bara presentera tidtabellen som den <em>borde</em> vara, analyserar DalaTransit hur stabil en viss anslutning faktiskt är i praktiken.
+            </p>
+        </div>
+    </div>
+
+    <!-- Parametrarna -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <h4 class="fw-bold mb-4 text-primary">Parametrar i vår riskmodell</h4>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="p-3 rounded-3 bg-light h-100 border">
+                        <h6 class="fw-bold mb-2">⏱️ Planerad bytesmarginal</h6>
+                        <p class="small text-muted mb-0">
+                            Tidtabellens marginal i minuter mellan ankommande fordon och nästa avgång på byteshållplatsen.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded-3 bg-light h-100 border">
+                        <h6 class="fw-bold mb-2">📊 Historisk ankomstförsening</h6>
+                        <p class="small text-muted mb-0">
+                            Faktiska GPS- och realtidsdata insamlade från Trafiklab över tid för specifika linjer och hållplatser.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded-3 bg-light h-100 border">
+                        <h6 class="fw-bold mb-2">🕒 Tid på dygnet (Tidsintervall)</h6>
+                        <p class="small text-muted mb-0">
+                            Trafiken skiljer sig markant åt. Under rusningstid (kl 07–09 och 15–17) ökar risken för följdförseningar jämfört med lågtrafik.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded-3 bg-light h-100 border">
+                        <h6 class="fw-bold mb-2">📍 Hållplatsens komplexitet</h6>
+                        <p class="small text-muted mb-0">
+                            Stora knutpunkter (t.ex. Falun Knutpunkten eller Borlänge C) kräver längre fysisk förflyttning mellan lägen än en enkel landsvägshållplats.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hur uträkningen går till -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <h4 class="fw-bold mb-3 text-primary">Hur uträkningen går till</h4>
+            <p class="text-secondary">
+                När du söker en resa genomför motorn (<code>TransferRiskEvaluator</code>) följande analys för varje byte i din rutt:
+            </p>
+
+            <ol class="list-group list-group-numbered mb-4">
+                <li class="list-group-item border-0 px-0">
+                    <strong>Hämta planerad marginal:</strong> Tiden beräknas mellan ankomst och nästa avgång.
+                </li>
+                <li class="list-group-item border-0 px-0">
+                    <strong>Matcha mot historisk data:</strong> Vi matchar ankommande linje och byteshållplats mot databasens aggregerade statistik för det aktuella timintervallet.
+                </li>
+                <li class="list-group-item border-0 px-0">
+                    <strong>Beräkna effektiv bytesmarginal:</strong><br />
+                    <code>Effektiv marginal = Planerad bytesmarginal - Förväntad försening</code>
+                </li>
+                <li class="list-group-item border-0 px-0">
+                    <strong>Sannolikhetsbedömning:</strong> Utifrån variationsbredden (hur ofta bussen tidigare kommit mer än X minuter sent) beräknas risken för att bytet spricker.
+                </li>
+            </ol>
+
+            <h5 class="fw-bold mt-4 mb-3">Våra risknivåer</h5>
+            <div class="d-flex flex-column gap-2">
+                <div class="p-3 rounded-3" style="background-color: #ecfdf5; border-left: 5px solid #10b981;">
+                    <span class="badge bg-success me-2">Låg risk (Tryggt byte)</span>
+                    <span class="text-dark small">Tidtabellen har god marginal och linjen har historiskt hållit tiden. Mycket god chans att hinna.</span>
+                </div>
+                <div class="p-3 rounded-3" style="background-color: #fffbeb; border-left: 5px solid #f59e0b;">
+                    <span class="badge bg-warning text-dark me-2">Måttlig risk (Varning)</span>
+                    <span class="text-dark small">Snävt byte eller linje med tendens till mindre förseningar. Värt att överväga en tidigare tur om du ska till ett viktigt möte.</span>
+                </div>
+                <div class="p-3 rounded-3" style="background-color: #fef2f2; border-left: 5px solid #ef4444;">
+                    <span class="badge bg-danger me-2">Hög risk (Kritiskt)</span>
+                    <span class="text-dark small">Stor sannolikhet att anslutningen missas baserat på faktisk kördata. Rekommenderas inte.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tillbaka-knapp -->
+    <div class="text-center pt-2">
+        <a href="" class="btn btn-outline-primary px-4 py-2 rounded-pill">
+            ← Tillbaka till resesökningen
+        </a>
+    </div>
+
+</div>
