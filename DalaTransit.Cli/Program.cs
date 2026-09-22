@@ -32,10 +32,20 @@ var dbOptions = new DbContextOptionsBuilder<TransitDbContext>()
 using var dbContext = new TransitDbContext(dbOptions);
 await dbContext.Database.EnsureCreatedAsync();
 
+string apiKey = Environment.GetEnvironmentVariable("TRAFIKLAB_API_KEY") ?? "";
+string staticApiKey = Environment.GetEnvironmentVariable("TRAFIKLAB_STATIC_API_KEY") ?? "";
+
+if (File.Exists("secrets.json"))
+{
+    using var secretsDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText("secrets.json"));
+    apiKey = secretsDoc.RootElement.GetProperty("ApiKey").GetString() ?? apiKey;
+    staticApiKey = secretsDoc.RootElement.GetProperty("StaticApiKey").GetString() ?? staticApiKey;
+}
+
 var options = Options.Create(new TrafiklabOptions
 {
-    ApiKey = "ce15967b9d6043e39c18fa78c7d82f21",
-    StaticApiKey = "5bd01ebf029a4db6b87200edf190bb30",
+    ApiKey = apiKey,
+    StaticApiKey = staticApiKey,
     OperatorCode = "dt"
 });
 

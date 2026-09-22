@@ -167,45 +167,66 @@ else if (journeys.Count > 0)
                         @for (int i = 0; i < journey.Legs.Count; i++)
                         {
                             var leg = journey.Legs[i];
-                            <div class="dt-timeline-leg">
-                                <div class="dt-timeline-point"></div>
-                                <div style="display: flex; align-items: baseline; gap: 8px;">
-                                    <strong style="min-width: 55px;">@leg.DepartureTime.ToString(@"hh\:mm")</strong>
-                                    <span class="dt-line-badge">@leg.LineNumber</span>
-                                    <span>Vid <strong>@leg.OriginStop</strong> @leg.OriginPlatform tar du Linje @leg.LineNumber mot @leg.DirectionHeading.</span>
-                                </div>
-                                <div style="margin-top: 6px; color: #666; margin-left: 63px;">
-                                    <span>Gå av vid <strong>@leg.DestinationStop</strong> @leg.DestinationPlatform kl @leg.ArrivalTime.ToString(@"hh\:mm").</span>
-                                </div>
-                            </div>
 
-                            @if (i < journey.Legs.Count - 1)
-                            {
-                                var nextLeg = journey.Legs[i + 1];
-                                var margin = (int)(nextLeg.DepartureTime >= leg.ArrivalTime
-                                    ? (nextLeg.DepartureTime - leg.ArrivalTime).TotalMinutes
-                                    : (nextLeg.DepartureTime + TimeSpan.FromHours(24) - leg.ArrivalTime).TotalMinutes);
-
-                                <div class="dt-transfer-alert" style="border-left-color: @(margin <= 3 ? "#c80032" : "#2e7d32"); background-color: @(margin <= 3 ? "#fdeded" : "#edf7ed");">
-                                    <div style="font-weight: 700; color: #111;">
-                                        Byte vid @leg.DestinationStop: @margin minuters marginal (@leg.DestinationPlatform ➔ @nextLeg.OriginPlatform)
+                                <div class="dt-leg-row">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="dt-line-badge" style="background-color: #004b87;">@leg.LineNumber</span>
+                                        <strong>Linje @leg.LineNumber</strong>
+                                        <span style="color: #666; font-size: 0.85rem;">(@leg.DepartureTime.ToString(@"hh\:mm") – @leg.ArrivalTime.ToString(@"hh\:mm"))</span>
                                     </div>
-                                    <div style="font-size: 0.85rem; color: #444; margin-top: 3px;">
-                                        @if (margin <= 3)
-                                        {
-                                            <span style="color: #c80032; font-weight: bold;">Snävt byte:</span>
-                                            <span> P90-förseningen för ankommande linje överstiger marginalen. Hög risk att missa anslutningen vid Knutpunkten.</span>
-                                        }
-                                        else
-                                        {
-                                            <span style="color: #2e7d32; font-weight: bold;">Tryggt byte:</span>
-                                            <span> God tidsmarginal för byte mellan hållplatslägena.</span>
-                                        }
+
+                                    <div style="margin-top: 6px; margin-left: 63px;">
+                                        <span>Vid <strong>@leg.OriginStop</strong> @leg.OriginPlatform tar du Linje @leg.LineNumber mot @leg.DirectionHeading.</span>
+                                    </div>
+                                    <div style="margin-top: 6px; color: #666; margin-left: 63px;">
+                                        <span>Gå av vid <strong>@leg.DestinationStop</strong> @leg.DestinationPlatform kl @leg.ArrivalTime.ToString(@"hh\:mm").</span>
                                     </div>
                                 </div>
+
+                                @if (i < journey.Legs.Count - 1)
+                                {
+                                    var nextLeg = journey.Legs[i + 1];
+                                    var margin = (int)(nextLeg.DepartureTime >= leg.ArrivalTime
+                                        ? (nextLeg.DepartureTime - leg.ArrivalTime).TotalMinutes
+                                        : (nextLeg.DepartureTime + TimeSpan.FromHours(24) - leg.ArrivalTime).TotalMinutes);
+
+                                    var hourStart = leg.ArrivalTime.Hours;
+                                    var intervalText = $"{hourStart:D2}:00–{(hourStart + 1) % 24:D2}:00";
+                                    var isRushHour = hourStart is 7 or 8 or 15 or 16;
+
+                                    <div class="dt-transfer-alert" style="border-left-color: @(margin <= 3 ? "#c80032" : "#2e7d32"); background-color: @(margin <= 3 ? "#fdeded" : "#edf7ed");">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+                                            <span style="font-weight: 700; color: #111;">
+                                                Byte vid @leg.DestinationStop: @margin minuters marginal (@leg.DestinationPlatform ➔ @nextLeg.OriginPlatform)
+                                            </span>
+                                            <span style="font-size: 0.75rem; background: rgba(0,0,0,0.06); padding: 2px 8px; border-radius: 10px; font-weight: 600;">
+                                                Trafikintervall: @intervalText @(isRushHour ? "(Rusningstid)" : "")
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: #444; margin-top: 5px;">
+                                            @if (margin <= 3)
+                                            {
+                                                <span style="color: #c80032; font-weight: bold;">Snävt byte:</span>
+                                                if (isRushHour)
+                                                {
+                                                    <span> Förhöjd risk under rusningstrafik. P90-förseningen (@(journey.RiskAnalysis?.P90DelayMinutes ?? 6.2) min) överstiger marginalen kraftigt.</span>
+                                                }
+                                                else
+                                                {
+                                                    <span> P90-förseningen överstiger marginalen. Risk att anslutande buss hinner avgå.</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #2e7d32; font-weight: bold;">Tryggt byte:</span>
+                                                <span> Marginalen ger god säkerhet mot normala förseningar under intervallet @intervalText.</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
                             }
-                        }
-                    </div>
+                        </div>
+                    
                 }
             </div>
         }

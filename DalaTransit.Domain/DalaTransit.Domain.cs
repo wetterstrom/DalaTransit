@@ -9,25 +9,22 @@ public sealed class RiskExportData
     public List<StopRiskSummary> Summaries { get; set; } = new();
 }
 
-public sealed class StopRiskSummary
+public record StopRiskSummary
 {
-    public string StopId { get; set; } = string.Empty;
-    public string StopName { get; set; } = string.Empty;
-    public int MarginMinutes { get; set; }
-    public TransferRiskReport Report { get; set; } = null!;
+    public string StopId { get; init; } = "";
+    public string StopName { get; init; } = "";
+    public int MarginMinutes { get; init; }
+    public TransferRiskReport Report { get; init; } = null!;
+    public int? HourOfDay { get; init; }
+
+    public StopRiskSummary() { }
+
+    public StopRiskSummary(string stopId, string stopName, int marginMinutes, TransferRiskReport report, int? hourOfDay = null)
+    {
+        StopId = stopId;
+        StopName = stopName;
+        MarginMinutes = marginMinutes;
+        Report = report;
+        HourOfDay = hourOfDay;
+    }
 }
-
-
-
-public record TransferRiskSummary(
-    string StopId,
-    string StopName,
-    int MarginMinutes,
-    TransferRiskReport Report,
-    int? HourOfDay = null
-);
-
-public record RiskExportData(
-    DateTime GeneratedAtUtc,
-    List<TransferRiskSummary> Summaries
-);

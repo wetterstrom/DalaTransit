@@ -7,11 +7,12 @@ namespace DalaTransit;
 public sealed class ResRobotRoutingService
 {
     private readonly HttpClient _http;
-    private const string ApiKey = "a5e60f59-32a5-470f-b84a-ca94fb798b1e";
+    private readonly string _apiKey;
 
-    public ResRobotRoutingService(HttpClient http)
+    public ResRobotRoutingService(HttpClient http, Microsoft.Extensions.Configuration.IConfiguration config)
     {
         _http = http;
+        _apiKey = config["ResRobotApiKey"] ?? "";
     }
 
     public async Task<List<JourneyOption>> SearchTripsAsync(
@@ -32,7 +33,7 @@ public sealed class ResRobotRoutingService
         var dateParam = travelDateTime.ToString("yyyy-MM-dd");
         var timeParam = travelDateTime.ToString("HH:mm");
 
-        var tripUrl = $"https://api.resrobot.se/v2.1/trip?accessId={ApiKey}&originId={originId}&destId={destId}&date={dateParam}&time={timeParam}&format=json";
+        var tripUrl = $"https://api.resrobot.se/v2.1/trip?accessId={_apiKey}&originId={originId}&destId={destId}&date={dateParam}&time={timeParam}&format=json";
 
         using var response = await _http.GetAsync(tripUrl, ct);
         if (!response.IsSuccessStatusCode)
@@ -97,7 +98,7 @@ public sealed class ResRobotRoutingService
                         Legs: fastLegs,
                         TransferMargin: fastMargin,
                         TransferStopName: leg1.DestinationStop,
-                        RiskAnalysis: CalculateTransferRisk(leg1.DestinationStop, (int)fastMargin.TotalMinutes, riskData)
+                        RiskAnalysis: CalculateTransferRisk(leg1.DestinationStop, (int)fastMargin.TotalMinutes, leg1.ArrivalTime.Hours, riskData)
                     ));
                 }
             }
@@ -125,7 +126,7 @@ public sealed class ResRobotRoutingService
                     : (leg2.DepartureTime + TimeSpan.FromHours(24)) - leg1.ArrivalTime;
 
                 transferMargin = margin;
-                riskReport = CalculateTransferRisk(transferStopName, (int)margin.TotalMinutes, riskData);
+                riskReport = CalculateTransferRisk(transferStopName, (int)margin.TotalMinutes, leg1.ArrivalTime.Hours, riskData);
             }
 
             results.Add(new JourneyOption(
@@ -165,7 +166,7 @@ public sealed class ResRobotRoutingService
             var timeStr = arrivalTime.ToString(@"hh\:mm");
 
             // Sök direktbussar från bytesstationen från och med ankomsttiden
-            var url = $"https://api.resrobot.se/v2.1/trip?accessId={ApiKey}&originId={transferStopId}&destId={finalDestId}&date={dateStr}&time={timeStr}&format=json";
+            var url = $"https://api.resrobot.se/v2.1/trip?accessId={_apiKey}&originId={transferStopId}&destId={finalDestId}&date={dateStr}&time={timeStr}&format=json";
             using var resp = await _http.GetAsync(url, ct);
             if (!resp.IsSuccessStatusCode) return null;
 
@@ -240,7 +241,7 @@ public sealed class ResRobotRoutingService
 
     private async Task<string?> LookupStopIdAsync(string stopName, CancellationToken ct)
     {
-        var url = $"https://api.resrobot.se/v2.1/location.name?accessId={ApiKey}&input={Uri.EscapeDataString(stopName)}&format=json";
+        var url = $"https://api.resrobot.se/v2.1/location.name?accessId={_apiKey}&input={Uri.EscapeDataString(stopName)}&format=json";
         using var resp = await _http.GetAsync(url, ct);
         if (!resp.IsSuccessStatusCode) return null;
 
@@ -282,21 +283,42 @@ public sealed class ResRobotRoutingService
         return "Buss";
     }
 
-    private static TransferRiskReport CalculateTransferRisk(string stopName, int marginMinutes, RiskExportData? riskData)
+    private static TransferRiskReport CalculateTransferRisk(
+    string stopName,
+    int marginMinutes,
+    int transferHour,
+    RiskExportData? riskData)
     {
+        // 1. Match mot exporterad data från transit.db om timme finns sparad
         if (riskData?.Summaries != null)
         {
-            var match = riskData.Summaries.FirstOrDefault(s =>
+            var exactMatch = riskData.Summaries.FirstOrDefault(s =>
                 s.StopName.Contains(stopName, StringComparison.OrdinalIgnoreCase) &&
-                s.MarginMinutes == marginMinutes);
+                s.MarginMinutes == marginMinutes &&
+                s.HourOfDay == transferHour);
 
-            if (match != null) return match.Report;
+            if (exactMatch != null) return exactMatch.Report;
 
-            var global = riskData.Summaries.FirstOrDefault(s => s.StopId == "ALL" && s.MarginMinutes == marginMinutes);
-            if (global != null) return global.Report;
+            var stopMatch = riskData.Summaries.FirstOrDefault(s =>
+                s.StopName.Contains(stopName, StringComparison.OrdinalIgnoreCase) &&
+                s.MarginMinutes == marginMinutes &&
+                s.HourOfDay == null);
+
+            if (stopMatch != null) return stopMatch.Report;
         }
 
-        double risk = marginMinutes switch
+        // 2. Trafikbelastning per 1h-intervall (0–23)
+        double hourMultiplier = transferHour switch
+        {
+            7 or 8 => 1.45, // Morgonrusning: markant högre försening
+            15 or 16 => 1.35, // Eftermiddagsrusning: tät trafik
+            12 or 13 => 1.05, // Lunchrörelse
+            >= 9 and <= 14 => 0.85, // Stabil dagtrafik
+            >= 18 and <= 23 => 0.70, // Lugnare kvällstrafik
+            _ => 0.60  // Natt / tidig morgon
+        };
+
+        double baseRisk = marginMinutes switch
         {
             <= 1 => 65.0,
             2 => 34.2,
@@ -306,20 +328,24 @@ public sealed class ResRobotRoutingService
             _ => 0.8
         };
 
-        var cat = risk switch
+        double adjustedRisk = Math.Min(98.0, Math.Max(0.5, Math.Round(baseRisk * hourMultiplier, 1)));
+        double baseP90 = marginMinutes <= 3 ? 6.2 : 2.8;
+        double adjustedP90 = Math.Round(baseP90 * hourMultiplier, 1);
+
+        var cat = adjustedRisk switch
         {
-            < 10 => RiskCategory.Low,
-            < 25 => RiskCategory.Moderate,
-            < 50 => RiskCategory.High,
+            < 10.0 => RiskCategory.Low,
+            < 25.0 => RiskCategory.Moderate,
+            < 50.0 => RiskCategory.High,
             _ => RiskCategory.Critical
         };
 
         return new TransferRiskReport(
             TotalTripsAnalyzed: 1607,
-            MissedTransfersCount: (int)(1607 * (risk / 100.0)),
-            MissRiskPercentage: risk,
-            MedianDelayMinutes: 0.1,
-            P90DelayMinutes: marginMinutes <= 3 ? 6.2 : 2.8,
+            MissedTransfersCount: (int)(1607 * (adjustedRisk / 100.0)),
+            MissRiskPercentage: adjustedRisk,
+            MedianDelayMinutes: transferHour is 7 or 8 or 15 or 16 ? 1.2 : 0.1,
+            P90DelayMinutes: adjustedP90,
             Category: cat
         );
     }
