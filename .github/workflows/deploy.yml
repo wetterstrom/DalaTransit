@@ -32,6 +32,12 @@ jobs:
       - name: Publish Blazor WebAssembly
         run: dotnet publish DalaTransit/DalaTransit.csproj -c Release -o release --nologo
 
+      - name: Inject ResRobot API Key into Published Output
+        env:
+          API_KEY: ${{ secrets.RESROBOT_API_KEY }}
+        run: |
+          echo "{\"ResRobotApiKey\": \"$API_KEY\"}" > release/wwwroot/appsettings.json
+
       - name: Change base tag in index.html
         run: sed -i 's/<base href="\/" \/>/<base href="\/DalaTransit\/" \/>/g' release/wwwroot/index.html
 
