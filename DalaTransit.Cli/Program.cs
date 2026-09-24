@@ -10,6 +10,75 @@ using DalaTransit.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
+
+// 1. Läs in API-nycklar (Miljövariabler i GitHub Actions prioriteras, annars secrets.json lokalt)
+string? apiKey = Environment.GetEnvironmentVariable("ResRobotApiKey")
+              ?? Environment.GetEnvironmentVariable("ApiKey");
+
+string? staticApiKey = Environment.GetEnvironmentVariable("TRAFIKLAB_STATIC_API_KEY")
+                    ?? Environment.GetEnvironmentVariable("StaticApiKey");
+
+// Leta efter secrets.json på de tre vanliga platserna
+var secretsPath = new[]
+{
+    "secrets.json",
+    Path.Combine("DalaTransit.Cli", "secrets.json"),
+    Path.Combine(AppContext.BaseDirectory, "secrets.json")
+}.FirstOrDefault(File.Exists);
+
+if (!string.IsNullOrEmpty(secretsPath))
+{
+    try
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(secretsPath));
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            if (doc.RootElement.TryGetProperty("ResRobotApiKey", out var k1))
+                apiKey = k1.GetString();
+            else if (doc.RootElement.TryGetProperty("ApiKey", out var k2))
+                apiKey = k2.GetString();
+        }
+
+        if (string.IsNullOrWhiteSpace(staticApiKey))
+        {
+            if (doc.RootElement.TryGetProperty("StaticApiKey", out var sk))
+                staticApiKey = sk.GetString();
+        }
+    }
+    catch { }
+}
+
+staticApiKey ??= "";
+
+// Kontrollera att ResRobot-nyckeln finns
+if (string.IsNullOrWhiteSpace(apiKey))
+{
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine("Fel: Ingen API-nyckel hittades!");
+    Console.WriteLine("Lägg till 'ResRobotApiKey' i secrets.json eller i GitHub Secrets.");
+    Console.ResetColor();
+    return;
+}
+
+// 2. Export-läge för GitHub Actions / schemalagda jobb
+if (args.Contains("--export"))
+{
+    Console.WriteLine("=== DalaTransit Statistics Exporter ===");
+
+    var targetPath = Path.Combine(Directory.GetCurrentDirectory(), "DalaTransit", "wwwroot", "data", "punctuality.json");
+    if (!Directory.Exists(Path.GetDirectoryName(targetPath)))
+    {
+        targetPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "DalaTransit", "wwwroot", "data", "punctuality.json");
+    }
+
+    using var http = new HttpClient();
+    var exporter = new DalaTransit.Cli.PunctualityExporter(http, apiKey);
+    await exporter.RunExportAsync(Path.GetFullPath(targetPath));
+
+    Console.WriteLine("Klart!");
+    return; // Avslutar här så inte den vanliga menyn startar i Actions-jobbet
+}
+
 Console.WriteLine("==========================================================");
 Console.WriteLine(" DALATRANSIT BACKGROUND COLLECTOR & EXPORTER");
 Console.WriteLine(" Tryck Ctrl + C för att avsluta mjukt.");
@@ -32,16 +101,8 @@ var dbOptions = new DbContextOptionsBuilder<TransitDbContext>()
 using var dbContext = new TransitDbContext(dbOptions);
 await dbContext.Database.EnsureCreatedAsync();
 
-string apiKey = Environment.GetEnvironmentVariable("TRAFIKLAB_API_KEY") ?? "";
-string staticApiKey = Environment.GetEnvironmentVariable("TRAFIKLAB_STATIC_API_KEY") ?? "";
 
-if (File.Exists("secrets.json"))
-{
-    using var secretsDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText("secrets.json"));
-    apiKey = secretsDoc.RootElement.GetProperty("ApiKey").GetString() ?? apiKey;
-    staticApiKey = secretsDoc.RootElement.GetProperty("StaticApiKey").GetString() ?? staticApiKey;
-}
-
+// staticApiKey är redan färdiginläst från toppen!
 var options = Options.Create(new TrafiklabOptions
 {
     ApiKey = apiKey,
