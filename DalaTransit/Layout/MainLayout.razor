@@ -1,7 +1,49 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <main>
-        @Body
-    </main>
-</div>
+<!-- Dalatrafik Header -->
+<header class="dt-navbar" style="background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 14px 24px; position: sticky; top: 0; z-index: 1000;">
+    <div style="max-width: 1100px; margin: 0 auto; width: 100%; display: flex; justify-content: space-between; align-items: center;">
+
+        <!-- Logotyp -->
+        <a href="" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #d90429; font-weight: 800; font-size: 1.25rem; letter-spacing: 0.5px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z" />
+            </svg>
+            <span>DALATRANSIT</span>
+        </a>
+
+        <!-- Horisontella navigationslänkar -->
+        <nav style="display: flex; align-items: center; gap: 24px;">
+            <NavLink href="" Match="NavLinkMatch.All" class="dt-link">Reseplanerare</NavLink>
+            <a href="#trafiklaget" class="dt-link">Trafikläget</a>
+            <NavLink href="om" class="dt-link">Om DalaTransit</NavLink>
+        </nav>
+
+    </div>
+</header>
+
+<!-- Sidinnehåll -->
+<main>
+    @Body
+</main>
+
+<style>
+    .dt-link {
+        text-decoration: none;
+        color: #334155;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: color 0.15s ease-in-out;
+        padding: 4px 0;
+    }
+
+        .dt-link:hover {
+            color: #d90429;
+        }
+
+        /* Den aktiva fliken markeras i rött */
+        .dt-link.active {
+            color: #d90429;
+            border-bottom: 2px solid #d90429;
+        }
+</style>
