@@ -1,0 +1,23 @@
+{
+  "name": "DalaTransit - En ärligare tidtabell",
+  "short_name": "DalaTransit",
+  "description": "Smart och transparent reseplanerare för Dalarna med verkliga riskbedömningar.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#d90429",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

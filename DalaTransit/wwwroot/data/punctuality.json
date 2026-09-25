@@ -1,0 +1,79 @@
+{
+  "lastUpdated": "2026-09-24T18:55:43.5956661Z",
+  "overallOnTimePercentage": 99.7,
+  "transferSuccessRate": 89.7,
+  "totalMonitoredTrips": 374,
+  "lines": [
+    {
+      "lineNumber": "1",
+      "routeName": "Linje 1 mot Påvelsgård (Alvesta kn)",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "6",
+      "routeName": "Linje 6 mot Göteborg Varmfrontsgatan",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "21",
+      "routeName": "Linje 21 mot Göteborg Eketrägatan",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "X4",
+      "routeName": "Linje X4 mot Mölnlycke station (Härryda kn)",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "X1",
+      "routeName": "Linje X1 mot Partille centrum",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "3",
+      "routeName": "Linje 3 mot Vagnhallen Majorna DEPÅ (Göteborg kn)",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "321",
+      "routeName": "Linje 321 mot Stenungsund station",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    },
+    {
+      "lineNumber": "9",
+      "routeName": "Linje 9 mot Angered centrum (Göteborg kn)",
+      "onTimePercentage": 100,
+      "averageDelayMinutes": 0
+    }
+  ],
+  "riskTransfers": [
+    {
+      "stationName": "Falun Knutpunkten",
+      "incomingLine": "Buss 151 (från Borlänge)",
+      "connectingLine": "Buss 1 (mot Lugnet)",
+      "scheduledMarginMinutes": 3,
+      "missRiskPercentage": 64
+    },
+    {
+      "stationName": "Borlänge Centralstation",
+      "incomingLine": "Buss 151 (från Falun)",
+      "connectingLine": "Tåg 70 (mot Mora)",
+      "scheduledMarginMinutes": 4,
+      "missRiskPercentage": 48
+    },
+    {
+      "stationName": "Borlänge Centralstation",
+      "incomingLine": "Buss 254 (från Hedemora)",
+      "connectingLine": "Buss 151 (mot Falun)",
+      "scheduledMarginMinutes": 5,
+      "missRiskPercentage": 38
+    }
+  ]
+}

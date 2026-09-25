@@ -1,55 +1,63 @@
-name: Deploy to GitHub Pages
+name: Deploy DalaTransit to GitHub Pages
 
 on:
   push:
-    branches: [ master ]
-  workflow_dispatch:
+    branches: [ master, main ]
+  schedule:
+    # Körs automatiskt var 6:e timme (kl 00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Gör att du även kan klicka på "Run workflow" manuellt när du vill
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '8.0.x' # Byt till '9.0.x' om projektet använder .NET 9
 
-      - name: Publish Blazor WebAssembly
-        run: dotnet publish DalaTransit/DalaTransit.csproj -c Release -o release --nologo
-
-      - name: Inject ResRobot API Key into Published Output
+      # 1. Kör CLI:et för att hämta realtidsdata och generera wwwroot/data/punctuality.json
+      - name: Generate Fresh Punctuality Data
         env:
-          API_KEY: ${{ secrets.RESROBOT_API_KEY }}
+          ResRobotApiKey: ${{ secrets.RESROBOT_API_KEY }}
         run: |
-          echo "{\"ResRobotApiKey\": \"$API_KEY\"}" > release/wwwroot/appsettings.json
+          dotnet run --project DalaTransit.Cli -- --export
 
-      - name: Change base tag in index.html
-        run: sed -i 's/<base href="\/" \/>/<base href="\/DalaTransit\/" \/>/g' release/wwwroot/index.html
-
-      - name: Fix SPA 404 routing & disable Jekyll
+      # 2. Skapa appsettings.json med API-nyckel för frontend
+      - name: Inject API Key into appsettings.json
         run: |
-          cp release/wwwroot/index.html release/wwwroot/404.html
-          touch release/wwwroot/.nojekyll
+          echo "{\"ResRobotApiKey\": \"${{ secrets.RESROBOT_API_KEY }}\"}" > DalaTransit/wwwroot/appsettings.json
 
-      - name: Upload GitHub Pages artifact
+      # 3. Bygg Blazor WebAssembly-appen (inklusive den nygenererade punctuality.json)
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish DalaTransit/DalaTransit.csproj -c Release -o output
+
+      # 4. Fixa SPA routing för GitHub Pages (kopiera index.html till 404.html)
+      - name: Fix SPA Routing for GitHub Pages
+        run: cp output/wwwroot/index.html output/wwwroot/404.html
+
+      # 5. Fixa base href för undermappen /DalaTransit/
+      - name: Rewrite base href
+        run: sed -i 's/<base href="\/" \/>/<base href="\/DalaTransit\/" \/>/g' output/wwwroot/index.html
+
+      # 6. Ladda upp till GitHub Pages
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: release/wwwroot
+          path: output/wwwroot
 
       - name: Deploy to GitHub Pages
         id: deployment

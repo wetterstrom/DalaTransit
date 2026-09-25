@@ -502,3 +502,39 @@ html, body {
         border-color: #adb5bd;
         color: #212529;
     }
+
+/* Förhindra automatisk inzoomning på iOS */
+input, select, textarea {
+    font-size: 16px !important;
+}
+
+/* Stora, lättryckta touch-ytor */
+button, .btn, .dt-bottom-link {
+    min-height: 44px;
+    touch-action: manipulation;
+}
+
+@media (max-width: 600px) {
+    /* Gör om tabellceller till block */
+    .table-mobile-card thead {
+        display: none;
+    }
+
+    .table-mobile-card tbody tr {
+        display: block;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .table-mobile-card td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: none;
+        padding: 6px 0;
+    }
+}
