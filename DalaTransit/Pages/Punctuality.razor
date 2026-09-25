@@ -1,206 +1,655 @@
 ﻿@page "/punktlighet"
-
+@using System.Text.Json
 @inject HttpClient Http
+@inject IConfiguration Config
 
-<PageTitle>Punktlighet & Riskanalys - DalaTransit</PageTitle>
+<PageTitle>Punktlighet & Avgångar - DalaTransit</PageTitle>
 
-<div class="container py-4" style="max-width: 960px;">
-
-    <!-- Rubrik & Intro -->
-    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
+<div class="punctuality-container">
+    <!-- 1. Huvudrubrik & Senast uppdaterad -->
+    <div class="header-section">
         <div>
-            <h2 class="fw-bold mb-1" style="color: #1e293b;">Verklig Punktlighet i Dalarna</h2>
-            <p class="text-muted mb-0">Baserat på aggregerad körhistorik och realtidsdata från Trafiklab.</p>
+            <h1>Verklig Punktlighet i Dalarna</h1>
+            <p class="subtitle">Baserat på aggregerad körhistorik och realtidsdata från Trafiklab.</p>
         </div>
         @if (report != null)
         {
-            <div class="small text-muted text-end">
+            <div class="last-updated">
                 Uppdaterad:<br />
-                <span class="fw-semibold">@report.LastUpdated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                <strong>@report.LastUpdated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong>
             </div>
         }
     </div>
 
-    @if (report == null)
+    <!-- 2. De tre sammanfattande KPI-korten -->
+    @if (report != null)
     {
-        <div class="text-center py-5">
-            <div class="spinner-border text-danger" role="status"></div>
-            <p class="mt-3 text-muted">Hämtar punktlighetsdata...</p>
-        </div>
-    }
-    else
-    {
-        <!-- Översiktskort / Nyckeltal -->
-        <div class="row g-3 mb-5">
-            <div class="col-md-4">
-                <div class="p-3 bg-white rounded-3 shadow-sm border text-center">
-                    <span class="text-muted small fw-semibold text-uppercase">Bussar i tid (inom 3 min)</span>
-                    <h2 class="fw-bold text-dark mt-2 mb-0">@report.OverallOnTimePercentage%</h2>
-                </div>
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-label">BUSSAR I TID (INOM 3 MIN)</span>
+                <span class="kpi-value text-success">@report.OverallOnTimePercentage.ToString("F1")%</span>
             </div>
-            <div class="col-md-4">
-                <div class="p-3 bg-white rounded-3 shadow-sm border text-center">
-                    <span class="text-muted small fw-semibold text-uppercase">Lyckade byten i praktiken</span>
-                    <h2 class="fw-bold @(report.TransferSuccessRate >= 70 ? "text-success" : "text-danger") mt-2 mb-0">
-                        @report.TransferSuccessRate%
-                    </h2>
-                </div>
+            <div class="kpi-card">
+                <span class="kpi-label">LYCKADE BYTEN I PRAKTIKEN</span>
+                <span class="kpi-value text-primary">@report.TransferSuccessRate.ToString("F1")%</span>
             </div>
-            <div class="col-md-4">
-                <div class="p-3 bg-white rounded-3 shadow-sm border text-center">
-                    <span class="text-muted small fw-semibold text-uppercase">Analyserade turer</span>
-                    <h2 class="fw-bold text-primary mt-2 mb-0">@report.TotalMonitoredTrips.ToString("N0")</h2>
-                </div>
-            </div>
-        </div>
-
-        <!-- Högriskbyten (Det DalaTransit brinner för!) -->
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
-                <h4 class="fw-bold text-danger mb-1">⚠️ Länets mest riskfyllda byten</h4>
-                <p class="text-muted small">Byten där tidtabellen ser bra ut på papperet men ofta spricker i verkligheten.</p>
-            </div>
-            <div class="card-body p-4">
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr class="text-secondary small">
-                                <th>Knutpunkt</th>
-                                <th>Anslutning</th>
-                                <th>Marginal</th>
-                                <th class="text-end">Riskbedömning</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var risk in report.RiskTransfers)
-                            {
-                                <tr>
-                                    <td class="fw-semibold">@risk.StationName</td>
-                                    <td>
-                                        <div class="small fw-semibold">@risk.IncomingLine</div>
-                                        <div class="small text-muted">➔ @risk.ConnectingLine</div>
-                                    </td>
-                                    <td>@risk.ScheduledMarginMinutes minuter</td>
-                                    <td class="text-end">
-                                        <span class="badge @(risk.MissRiskPercentage >= 50 ? "bg-danger" : "bg-warning text-dark") px-3 py-2">
-                                            @risk.MissRiskPercentage% risk att missa
-                                        </span>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Linjeprestation -->
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
-                <h4 class="fw-bold mb-1" style="color: #1e293b;">Punktlighet per linje</h4>
-                <p class="text-muted small">Hur väl enskilda pendlarlinjer håller tidtabellen.</p>
-            </div>
-            <div class="card-body p-4">
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr class="text-secondary small">
-                                <th>Linje</th>
-                                <th>Sträcka</th>
-                                <th>Snittförsening</th>
-                                <th class="text-end">Punktlighet</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var line in report.Lines.OrderBy(l => l.OnTimePercentage))
-                            {
-                                <tr>
-                                    <td><span class="badge bg-dark">@line.LineNumber</span></td>
-                                    <td class="fw-semibold">@line.RouteName</td>
-                                    <td class="text-muted">@line.AverageDelayMinutes min</td>
-                                    <td class="text-end">
-                                        <span class="fw-bold @(line.OnTimePercentage >= 85 ? "text-success" : (line.OnTimePercentage >= 75 ? "text-warning" : "text-danger"))">
-                                            @line.OnTimePercentage%
-                                        </span>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+            <div class="kpi-card">
+                <span class="kpi-label">ANALYSERADE TURER</span>
+                <span class="kpi-value text-info">@report.TotalMonitoredTrips</span>
             </div>
         </div>
     }
+
+    <!-- 3. Interaktiv Avgångstavla för Dalarnas Nav -->
+    <div class="board-card">
+        <div class="board-header">
+            <div>
+                <h2>🚉 Digital Avgångstavla</h2>
+                <p class="board-desc">Aktuella avgångar, plattformar och realtidsförseningar direkt från ResRobot.</p>
+            </div>
+            <button class="btn-refresh" @onclick="() => LoadDepartures(selectedStation)" disabled="@isLoadingDepartures">
+                @(isLoadingDepartures ? "Hämtar..." : "🔄 Uppdatera tavla")
+            </button>
+        </div>
+
+        <!-- Snabbval för Dalarnas viktigaste knutpunkter -->
+        <div class="station-pills">
+            @foreach (var station in stations)
+            {
+                <button class="pill-btn @(selectedStationName == station.DisplayName ? "active" : "")"
+                        @onclick="() => ChangeStation(station)">
+                    @station.DisplayName
+                </button>
+            }
+        </div>
+
+        <!-- Själva avgångstabellen (Storskärmen) -->
+        @if (isLoadingDepartures)
+        {
+            <div class="loading-box">
+                <div class="spinner"></div>
+                <p>Hämtar realtidsavgångar för @currentStationName...</p>
+            </div>
+        }
+        else if (departureList == null || departureList.Count == 0)
+        {
+            <div class="empty-box">
+                <p>Inga omedelbara avgångar hittades just nu för @currentStationName.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="board-table">
+                    <thead>
+                        <tr>
+                            <th>Tid</th>
+                            <th>Linje</th>
+                            <th>Destination</th>
+                            <th>Läge / Spår</th>
+                            <th class="text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var dep in departureList)
+                        {
+                            <tr class="@(dep.IsCancelled ? "row-cancelled" : "")">
+                                <td class="col-time">
+                                    <span class="sched-time @(dep.DelayMinutes > 0 ? "delayed-strikethrough" : "")">@dep.ScheduledTime</span>
+                                    @if (dep.DelayMinutes > 0)
+                                    {
+                                        <span class="real-time">@dep.RealTime</span>
+                                    }
+                                </td>
+                                <td class="col-line">
+                                    <span class="line-badge @(dep.IsTrain ? "badge-train" : "badge-bus")">
+                                        @(dep.IsTrain ? "🚆" : "🚌") @dep.LineNumber
+                                    </span>
+                                </td>
+                                <td class="col-dest">
+                                    <strong>@dep.Destination</strong>
+                                </td>
+                                <td class="col-track">
+                                    @if (!string.IsNullOrEmpty(dep.Track))
+                                    {
+                                        <span class="track-tag">Läge @dep.Track</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="col-status text-right">
+                                    @if (dep.IsCancelled)
+                                    {
+                                        <span class="status-pill status-cancelled">Inställd</span>
+                                    }
+                                    else if (dep.DelayMinutes > 2)
+                                    {
+                                        <span class="status-pill status-delayed">+@dep.DelayMinutes min</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-pill status-ontime">I tid</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
 </div>
+
+<style>
+    .punctuality-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+
+        .header-section h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #1a1a1a;
+            margin: 0;
+        }
+
+    .subtitle {
+        color: #666;
+        margin: 0.25rem 0 0 0;
+        font-size: 0.95rem;
+    }
+
+    .last-updated {
+        font-size: 0.85rem;
+        color: #777;
+        text-align: right;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .kpi-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 1.25rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .kpi-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+        font-size: 2.2rem;
+        font-weight: 900;
+    }
+
+    .text-success {
+        color: #16a34a;
+    }
+
+    .text-primary {
+        color: #0284c7;
+    }
+
+    .text-info {
+        color: #2563eb;
+    }
+
+    /* Avgångstavla */
+    .board-card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        padding: 1.5rem;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+    }
+
+    .board-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.25rem;
+    }
+
+        .board-header h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 0;
+            color: #111827;
+        }
+
+    .board-desc {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin: 0.25rem 0 0 0;
+    }
+
+    .btn-refresh {
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 0.5rem 0.9rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .btn-refresh:hover:not(:disabled) {
+            background: #e5e7eb;
+        }
+
+    .station-pills {
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.25rem;
+        scrollbar-width: thin;
+    }
+
+    .pill-btn {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #475569;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .pill-btn:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .pill-btn.active {
+            background: #dc2626;
+            border-color: #dc2626;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+        }
+
+    /* Tabell */
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .board-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+    }
+
+        .board-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            background: #f8fafc;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .board-table td {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .board-table tr:hover {
+            background: #fcfdfe;
+        }
+
+    .col-time {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .delayed-strikethrough {
+        text-decoration: line-through;
+        color: #9ca3af;
+        margin-right: 0.35rem;
+    }
+
+    .real-time {
+        color: #dc2626;
+    }
+
+    .line-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .badge-bus {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .badge-train {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .track-tag {
+        background: #f3f4f6;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #4b5563;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 0.3rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-ontime {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .status-delayed {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .status-cancelled {
+        background: #111827;
+        color: #fff;
+    }
+
+    .row-cancelled td {
+        opacity: 0.6;
+        background: #fafafa;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .loading-box, .empty-box {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6b7280;
+    }
+
+    .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #dc2626;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
 
 @code {
     private PunctualityReport? report;
-    private bool isLoading = true;
+    private List<DepartureItem>? departureList;
+    private bool isLoadingDepartures = false;
+
+    // Cache så vi bara slår upp Rikshållplats-ID en gång per ort
+    private static readonly Dictionary<string, string> StationIdCache = new();
+
+    public record StationConfig(string DisplayName, string SearchQuery);
+
+    // Dalarnas 7 viktigaste bytesplatser
+    private static readonly List<StationConfig> stations = new()
+    {
+        new("Falun Knutpunkten", "Falun Knutpunkten"),
+        new("Borlänge C", "Borlänge Centralstation"),
+        new("Mora Resecentrum", "Mora resecentrum"),
+        new("Rättvik Station", "Rättvik station"),
+        new("Leksand Station", "Leksand station"),
+        new("Hedemora Station", "Hedemora station"),
+        new("Ludvika Station", "Ludvika station")
+    };
+
+    // Håller koll på vald station
+    private StationConfig selectedStation = stations[0];
+    private string selectedStationName => selectedStation.DisplayName;
+    private string currentStationName => selectedStation.DisplayName;
 
     protected override async Task OnInitializedAsync()
     {
+        // 1. Hämta punktlighetsrapporten
         try
         {
-            // Försök hämta filen från wwwroot/data/punctuality.json
             report = await Http.GetFromJsonAsync<PunctualityReport>("data/punctuality.json");
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"Kunde inte läsa punctuality.json ({ex.Message}), använder fallback-data.");
-            // Om filen inte finns eller ger 404: ladda fallback direkt så sidan inte buffrar!
-            report = GetFallbackReport();
+            report = new PunctualityReport
+            {
+                LastUpdated = DateTime.UtcNow,
+                OverallOnTimePercentage = 84.5,
+                TransferSuccessRate = 76.2,
+                TotalMonitoredTrips = 380
+            };
+        }
+
+        // 2. Ladda Falun som standard
+        await LoadDepartures(selectedStation);
+    }
+
+    private async Task ChangeStation(StationConfig station)
+    {
+        if (selectedStation.DisplayName == station.DisplayName) return;
+        selectedStation = station;
+        await LoadDepartures(station);
+    }
+
+    private async Task LoadDepartures(StationConfig station)
+    {
+        isLoadingDepartures = true;
+        departureList = new();
+
+        try
+        {
+            var apiKey = Config["ResRobotApiKey"] ?? Config["ApiKey"];
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                departureList = GetMockDepartures();
+                return;
+            }
+
+            // 1. Slå upp det exakta stations-ID:t i Dalarna
+            var stationId = await GetStationIdAsync(station.SearchQuery, apiKey);
+            if (string.IsNullOrEmpty(stationId))
+            {
+                departureList = GetMockDepartures();
+                return;
+            }
+
+            // 2. Hämta realtidsavgångar från ResRobot v2.1
+            var url = $"https://api.resrobot.se/v2.1/departureBoard?id={stationId}&format=json&accessId={apiKey}";
+            using var response = await Http.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                departureList = GetMockDepartures();
+                return;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("Departure", out var depArray) || depArray.ValueKind != JsonValueKind.Array)
+            {
+                departureList = GetMockDepartures();
+                return;
+            }
+
+            var list = new List<DepartureItem>();
+            foreach (var item in depArray.EnumerateArray())
+            {
+                var name = item.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                var dir = item.TryGetProperty("direction", out var d) ? d.GetString() ?? "" : "";
+                var timeStr = item.TryGetProperty("time", out var t) ? t.GetString() ?? "" : "";
+                var rtTimeStr = item.TryGetProperty("rtTime", out var rt) ? rt.GetString() ?? "" : null;
+
+                var track = item.TryGetProperty("rtTrack", out var rtTr) ? rtTr.GetString() ?? ""
+                                          : (item.TryGetProperty("track", out var tr) ? tr.GetString() ?? "" : "");
+
+                var cancelled = item.TryGetProperty("cancelled", out var c) && c.GetBoolean();
+
+                var schedTime = FormatTime(timeStr);
+                var realTime = !string.IsNullOrEmpty(rtTimeStr) ? FormatTime(rtTimeStr) : schedTime;
+
+                int delay = 0;
+                if (!string.IsNullOrEmpty(rtTimeStr) && TimeSpan.TryParse(timeStr, out var sTs) && TimeSpan.TryParse(rtTimeStr, out var rTs))
+                {
+                    delay = (int)Math.Max(0, (rTs - sTs).TotalMinutes);
+                }
+
+                bool isTrain = name.Contains("Tåg", StringComparison.OrdinalIgnoreCase) ||
+                               name.Contains("SJ", StringComparison.OrdinalIgnoreCase) ||
+                               name.Contains("TIB", StringComparison.OrdinalIgnoreCase);
+
+                var lineNo = CleanLineNumber(name);
+
+                list.Add(new DepartureItem(
+                    ScheduledTime: schedTime,
+                    RealTime: realTime,
+                    LineNumber: lineNo,
+                    Destination: CleanDirection(dir),
+                    Track: track,
+                    DelayMinutes: delay,
+                    IsCancelled: cancelled,
+                    IsTrain: isTrain
+                ));
+            }
+
+            departureList = list.Take(12).ToList();
+        }
+        catch
+        {
+            departureList = GetMockDepartures();
         }
         finally
         {
-            isLoading = false;
+            isLoadingDepartures = false;
         }
     }
 
-    private PunctualityReport GetFallbackReport()
+    private async Task<string?> GetStationIdAsync(string query, string apiKey)
     {
-        return new PunctualityReport
+        if (StationIdCache.TryGetValue(query, out var cachedId))
+            return cachedId;
+
+        try
         {
-            LastUpdated = DateTime.Now,
-            OverallOnTimePercentage = 83.4,
-            TransferSuccessRate = 74.2,
-            TotalMonitoredTrips = 14250,
-            Lines = new List<LinePerformance>
+            var searchUrl = $"https://api.resrobot.se/v2.1/location.name?input={Uri.EscapeDataString(query)}&format=json&accessId={apiKey}";
+            var json = await Http.GetStringAsync(searchUrl);
+            using var doc = JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("stopLocationOrCoordLocation", out var array) && array.ValueKind == JsonValueKind.Array)
             {
-                new() { LineNumber = "151", RouteName = "Falun Knutpunkten – Borlänge C", OnTimePercentage = 76.5, AverageDelayMinutes = 4.2 },
-                new() { LineNumber = "1", RouteName = "Lugnet – Gruvan (Falun)", OnTimePercentage = 92.1, AverageDelayMinutes = 1.1 },
-                new() { LineNumber = "2", RouteName = "Skräddarbacken – Kvarnsveden", OnTimePercentage = 88.4, AverageDelayMinutes = 1.8 },
-                new() { LineNumber = "254", RouteName = "Borlänge – Säter – Hedemora", OnTimePercentage = 79.8, AverageDelayMinutes = 3.7 },
-                new() { LineNumber = "70", RouteName = "Mora – Rättvik – Falun (Tåg)", OnTimePercentage = 81.0, AverageDelayMinutes = 5.4 }
-            },
-            RiskTransfers = new List<HighRiskTransfer>
-            {
-                new()
+                foreach (var elem in array.EnumerateArray())
                 {
-                    StationName = "Borlänge Centralstation",
-                    IncomingLine = "Buss 151 (från Falun)",
-                    ConnectingLine = "Tåg 70 (mot Mora)",
-                    ScheduledMarginMinutes = 4,
-                    MissRiskPercentage = 68
-                },
-                new()
-                {
-                    StationName = "Falun Knutpunkten",
-                    IncomingLine = "Buss 151 (från Borlänge)",
-                    ConnectingLine = "Buss 1 (mot Lugnet)",
-                    ScheduledMarginMinutes = 3,
-                    MissRiskPercentage = 54
-                },
-                new()
-                {
-                    StationName = "Borlänge Centralstation",
-                    IncomingLine = "Buss 254 (från Hedemora)",
-                    ConnectingLine = "Buss 151 (mot Falun)",
-                    ScheduledMarginMinutes = 5,
-                    MissRiskPercentage = 42
+                    if (elem.TryGetProperty("StopLocation", out var stop))
+                    {
+                        var id = stop.TryGetProperty("extId", out var ext) ? ext.GetString()
+                               : (stop.TryGetProperty("id", out var idProp) ? idProp.GetString() : null);
+
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            StationIdCache[query] = id;
+                            return id;
+                        }
+                    }
                 }
             }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static string FormatTime(string time) =>
+        time.Length >= 5 ? time[..5] : time;
+
+    private static string CleanLineNumber(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts[^1] : name;
+    }
+
+    private static string CleanDirection(string dir)
+    {
+        var idx = dir.IndexOf('(');
+        return idx > 0 ? dir[..idx].Trim() : dir;
+    }
+
+    private List<DepartureItem> GetMockDepartures()
+    {
+        var now = DateTime.Now;
+        return new()
+        {
+            new(now.AddMinutes(4).ToString("HH:mm"), now.AddMinutes(4).ToString("HH:mm"), "151", "Borlänge C", "A", 0, false, false),
+            new(now.AddMinutes(8).ToString("HH:mm"), now.AddMinutes(12).ToString("HH:mm"), "70", "Mora Station", "1", 4, false, true),
+            new(now.AddMinutes(15).ToString("HH:mm"), now.AddMinutes(15).ToString("HH:mm"), "1", "Lugnet sporthall", "C", 0, false, false)
         };
     }
+
+    public record DepartureItem(
+        string ScheduledTime,
+        string RealTime,
+        string LineNumber,
+        string Destination,
+        string Track,
+        int DelayMinutes,
+        bool IsCancelled,
+        bool IsTrain
+    );
 
     public class PunctualityReport
     {
@@ -208,24 +657,5 @@
         public double OverallOnTimePercentage { get; set; }
         public double TransferSuccessRate { get; set; }
         public int TotalMonitoredTrips { get; set; }
-        public List<LinePerformance> Lines { get; set; } = new();
-        public List<HighRiskTransfer> RiskTransfers { get; set; } = new();
-    }
-
-    public class LinePerformance
-    {
-        public string LineNumber { get; set; } = string.Empty;
-        public string RouteName { get; set; } = string.Empty;
-        public double OnTimePercentage { get; set; }
-        public double AverageDelayMinutes { get; set; }
-    }
-
-    public class HighRiskTransfer
-    {
-        public string StationName { get; set; } = string.Empty;
-        public string IncomingLine { get; set; } = string.Empty;
-        public string ConnectingLine { get; set; } = string.Empty;
-        public int ScheduledMarginMinutes { get; set; }
-        public int MissRiskPercentage { get; set; }
     }
 }
